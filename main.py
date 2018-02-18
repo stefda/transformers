@@ -5,6 +5,10 @@ from lib.abstract_transformer import runBatchTransformer, runTransformer
 from transformers.highway import HighwayTransformer
 from transformers.bathymetry import BathymetryTransformer
 from transformers.water import WaterTransformer
+from transformers.bay import BayToLabelTransformer, BayLabelTransformer
+from transformers.beach import BeachTransformer, BeachToLabelTransformer, BeachLabelTransformer
+from transformers.marina import MarinaTransformer
+from transformers.anchorage import AnchorageTransformer
 
 import argparse
 
@@ -20,12 +24,19 @@ args = parser.parse_args()
 
 if __name__ == '__main__':
     transformers = [
-        BathymetryTransformer,
-        WaterTransformer
+        AnchorageTransformer,
+        MarinaTransformer,
+        # BeachTransformer,
+        # BeachToLabelTransformer,
+        # BeachLabelTransformer,
+        # BayToLabelTransformer,
+        # BayLabelTransformer,
+        # BathymetryTransformer,
+        # WaterTransformer
     ]
 
     batchTransformers = [
-        HighwayTransformer
+        # HighwayTransformer
     ]
 
     conn = psycopg2.connect('host=%s port=%s dbname=%s user=%s password=%s'
