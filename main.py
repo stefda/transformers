@@ -9,6 +9,7 @@ from transformers.bay import BayToLabelTransformer, BayLabelTransformer
 from transformers.beach import BeachTransformer, BeachToLabelTransformer, BeachLabelTransformer
 from transformers.marina import MarinaTransformer
 from transformers.anchorage import AnchorageTransformer
+from transformers.light import LightTransformer
 
 import argparse
 
@@ -26,6 +27,7 @@ if __name__ == '__main__':
     transformers = [
         AnchorageTransformer,
         MarinaTransformer,
+        LightTransformer,
         # BeachTransformer,
         # BeachToLabelTransformer,
         # BeachLabelTransformer,
