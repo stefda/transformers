@@ -10,10 +10,12 @@ from transformers.beach import BeachTransformer, BeachToLabelTransformer, BeachL
 from transformers.marina import MarinaTransformer
 from transformers.anchorage import AnchorageTransformer
 from transformers.light import LightTransformer
+from transformers.rock import RockTransformer
+from transformers.island import IslandToLabelTransformer, IslandLabelTransformer
 
 import argparse
 
-parser = argparse.ArgumentParser(description='Process some integers.')
+parser = argparse.ArgumentParser(description='Transform OSM data.')
 parser.add_argument('--out', required=True, help='Path where to output files')
 parser.add_argument('--host', default='localhost')
 parser.add_argument('--port', default='5432')
@@ -25,16 +27,19 @@ args = parser.parse_args()
 
 if __name__ == '__main__':
     transformers = [
+        IslandToLabelTransformer,
+        IslandLabelTransformer,
         AnchorageTransformer,
         MarinaTransformer,
         LightTransformer,
-        # BeachTransformer,
-        # BeachToLabelTransformer,
-        # BeachLabelTransformer,
-        # BayToLabelTransformer,
-        # BayLabelTransformer,
-        # BathymetryTransformer,
-        # WaterTransformer
+        BeachTransformer,
+        BeachToLabelTransformer,
+        BeachLabelTransformer,
+        BayToLabelTransformer,
+        BayLabelTransformer,
+        RockTransformer,
+        WaterTransformer,
+        # BathymetryTransformer
     ]
 
     batchTransformers = [
