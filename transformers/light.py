@@ -12,7 +12,7 @@ class LightTransformer(AbstractTransformer):
         psycopg2.extras.register_hstore(cur)
 
         cur.execute("""
-        SELECT other_tags, ST_AsGeoJSON(wkb_geometry) AS geom
+        SELECT osm_id, other_tags, ST_AsGeoJSON(wkb_geometry) AS geom
         FROM points
         WHERE "other_tags" @> '"seamark:type"=>"light_minor"' OR "other_tags" @> '"seamark:type"=>"light_major"'
         """)
@@ -27,6 +27,7 @@ class LightTransformer(AbstractTransformer):
         for value in values:
             type = value['other_tags'].get('seamark:type')
             features.append(Feature(geometry=Point(loads(value['geom'])), properties={
+                'osm_ref': value['osm_id'] + 'n',
                 'type': 'minor' if type == 'light_minor' else 'major'
             }))
 

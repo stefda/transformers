@@ -6,15 +6,15 @@ from lib.abstract_transformer import AbstractTransformer
 from lib.utils import record
 
 
-class LightTransformer(AbstractTransformer):
+class RockTransformer(AbstractTransformer):
     def load(self):
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         psycopg2.extras.register_hstore(cur)
 
         cur.execute("""
-        SELECT other_tags, ST_AsGeoJSON(wkb_geometry) AS geom
+        SELECT osm_id, ST_AsGeoJSON(wkb_geometry) AS geom
         FROM points
-        WHERE "other_tags" @> '"seamark:type"=>"light_minor"' OR "other_tags" @> '"seamark:type"=>"light_major"'
+        WHERE "other_tags" @> '"seamark:type"=>"rock"'
         """)
 
         rows = cur.fetchall()
@@ -25,15 +25,14 @@ class LightTransformer(AbstractTransformer):
     def transform(self, values):
         features = []
         for value in values:
-            type = value['other_tags'].get('seamark:type')
             features.append(Feature(geometry=Point(loads(value['geom'])), properties={
-                'type': 'minor' if type == 'light_minor' else 'major'
+                'osm_ref': value['osm_id'] + 'n'
             }))
 
         return features
 
     def save(self, features):
-        filename = os.path.join(self.path, 'light.json')
+        filename = os.path.join(self.path, 'rock.json')
         fp = open(filename, 'w')
         for feature in features:
             fp.write(record(dumps(feature)))

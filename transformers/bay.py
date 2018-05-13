@@ -10,6 +10,7 @@ TABLE_SQL = """
 CREATE TABLE bay_labels (
     gid SERIAL NOT NULL,
     osm_id character varying,
+    osm_way_id character varying,
     name character varying,
     name_en character varying,
     geom geometry(POINT, 4326)
@@ -71,7 +72,7 @@ class BayLabelTransformer(AbstractTransformer):
     def load(self):
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
-        SELECT name, name_en, ST_AsGeoJSON(geom) AS geom FROM bay_labels
+        SELECT osm_id, osm_way_id,  name, name_en, ST_AsGeoJSON(geom) AS geom FROM bay_labels
         """)
 
         row = cur.fetchall()
@@ -83,6 +84,7 @@ class BayLabelTransformer(AbstractTransformer):
         for value in values:
             geometry = loads(value['geom'])
             features.append(Feature(geometry=geometry, properties={
+                'osm_ref': value['osm_id'] + 'n' if value['osm_id'] else value['osm_way_id'] + 'w',
                 'name': value['name'],
                 'name_en': value['name_en']
             }))

@@ -10,6 +10,7 @@ TABLE_SQL = """
 CREATE TABLE beach_labels (
     gid SERIAL NOT NULL,
     osm_id character varying,
+    osm_way_id character varying,
     name character varying,
     name_en character varying,
     geom geometry(POINT, 4326)
@@ -23,7 +24,7 @@ class BeachTransformer(AbstractTransformer):
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         psycopg2.extras.register_hstore(cur)
         cur.execute("""
-        SELECT other_tags, ST_AsGeoJSON(wkb_geometry) AS geom
+        SELECT osm_id, osm_way_id, other_tags, ST_AsGeoJSON(wkb_geometry) AS geom
         FROM multipolygons
         WHERE "natural" = 'beach'
         """)
@@ -38,6 +39,7 @@ class BeachTransformer(AbstractTransformer):
         for value in values:
             multipolygon = loads(value['geom'])
             features.append(Feature(geometry=multipolygon, properties={
+                'osm_ref': value['osm_id'] + 'n' if value['osm_id'] else value['osm_way_id'] + 'w',
                 'surface': value['other_tags'].get('surface') if value['other_tags'] else None
             }))
 
@@ -93,10 +95,11 @@ class BeachToLabelTransformer(AbstractTransformer):
 
         for value in values:
             cur.execute("""
-            INSERT INTO beach_labels (osm_id, name, name_en, geom)
-            VALUES (%s, %s, %s, ST_Transform(ST_GeomFromGeoJSON(%s), 4326))
+            INSERT INTO beach_labels (osm_id, osm_way_id, name, name_en, geom)
+            VALUES (%s, %s, %s, %s, ST_Transform(ST_GeomFromGeoJSON(%s), 4326))
             """, [
-                value['osm_id'] or value['osm_way_id'],
+                value['osm_id'],
+                value['osm_way_id'],
                 value['name'],
                 value['other_tags'].get('name:en') if value['other_tags'] else None,
                 dumps(value['geom'])])
@@ -109,7 +112,7 @@ class BeachLabelTransformer(AbstractTransformer):
     def load(self):
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
-        SELECT name, name_en, ST_AsGeoJSON(geom) AS geom FROM beach_labels
+        SELECT osm_id, osm_way_id, name, name_en, ST_AsGeoJSON(geom) AS geom FROM beach_labels
         """)
 
         row = cur.fetchall()
@@ -121,6 +124,7 @@ class BeachLabelTransformer(AbstractTransformer):
         for value in values:
             geometry = loads(value['geom'])
             features.append(Feature(geometry=geometry, properties={
+                'osm_ref': value['osm_id'] + 'n' if value['osm_id'] else value['osm_way_id'] + 'w',
                 'name': value['name'],
                 'name_en': value['name_en']
             }))

@@ -7,59 +7,24 @@ from lib.polylabel import polylabel
 from lib.utils import record
 
 TABLE_SQL = """
-CREATE TABLE beach_labels (
+CREATE TABLE island_labels (
     gid SERIAL NOT NULL,
     osm_id character varying,
     osm_way_id character varying,
     name character varying,
     name_en character varying,
-    geom geometry(POINT, 4326)
+    geom geometry(GEOMETRY, 4326)
 );
-CREATE INDEX beach_labels_idx ON beach_labels USING gist(geom);
+CREATE INDEX island_labels_idx ON island_labels USING gist(geom);
 """
 
 
-class BeachTransformer(AbstractTransformer):
-    def load(self):
-        cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        psycopg2.extras.register_hstore(cur)
-        cur.execute("""
-        SELECT osm_id, osm_way_id, other_tags, ST_AsGeoJSON(wkb_geometry) AS geom
-        FROM multipolygons
-        WHERE "natural" = 'beach'
-        """)
-
-        rows = cur.fetchall()
-        cur.close()
-
-        return rows
-
-    def transform(self, values):
-        features = []
-        for value in values:
-            multipolygon = loads(value['geom'])
-            features.append(Feature(geometry=multipolygon, properties={
-                'osm_ref': value['osm_id'] + 'n' if value['osm_id'] else value['osm_way_id'] + 'w',
-                'surface': value['other_tags'].get('surface') if value['other_tags'] else None
-            }))
-
-        return features
-
-    def save(self, features):
-        filename = os.path.join(self.path, 'beach.json')
-        fp = open(filename, 'w')
-        for feature in features:
-            fp.write(record(dumps(feature)))
-
-        fp.close()
-
-
-class BeachToLabelTransformer(AbstractTransformer):
+class IslandToLabelTransformer(AbstractTransformer):
     def setup(self):
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         cur.execute("""
-        DROP TABLE IF EXISTS beach_labels
+        DROP TABLE IF EXISTS island_labels
         """)
         self.conn.commit()
 
@@ -69,33 +34,45 @@ class BeachToLabelTransformer(AbstractTransformer):
         cur.close()
 
     def load(self):
+        values = {}
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         psycopg2.extras.register_hstore(cur)
+
         cur.execute("""
-        SELECT osm_id, osm_way_id, name, other_tags, ST_AsGeoJSON(ST_Transform(wkb_geometry, 3857)) AS geom
-        FROM multipolygons
-        WHERE "natural" = 'beach'
+            SELECT osm_id, osm_way_id, name, other_tags, ST_AsGeoJSON(ST_Transform(wkb_geometry, 3857)) AS geom
+            FROM multipolygons
+            WHERE "place" = 'island'
         """)
+        values['polygons'] = cur.fetchall()
 
-        rows = cur.fetchall()
+        cur.execute("""
+                SELECT osm_id, name, other_tags, ST_AsGeoJSON(ST_Transform(wkb_geometry, 3857)) AS geom
+                FROM points
+                WHERE "place" = 'island'
+                """)
+        values['points'] = cur.fetchall()
+
         cur.close()
-
-        return rows
+        return values
 
     def transform(self, values):
-        for value in values:
+        for value in values['polygons']:
             polygon = loads(value['geom'])
             coordinates = polylabel(polygon['coordinates'][0])
             value['geom'] = Point(coordinates, crs={'type': 'name', 'properties': {'name': 'EPSG:3857'}})
+
+        for value in values['points']:
+            point = loads(value['geom'])
+            value['geom'] = Point(point['coordinates'], crs={'type': 'name', 'properties': {'name': 'EPSG:3857'}})
 
         return values
 
     def save(self, values):
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        for value in values:
+        for value in values['polygons']:
             cur.execute("""
-            INSERT INTO beach_labels (osm_id, osm_way_id, name, name_en, geom)
+            INSERT INTO island_labels (osm_id, osm_way_id, name, name_en, geom)
             VALUES (%s, %s, %s, %s, ST_Transform(ST_GeomFromGeoJSON(%s), 4326))
             """, [
                 value['osm_id'],
@@ -104,15 +81,26 @@ class BeachToLabelTransformer(AbstractTransformer):
                 value['other_tags'].get('name:en') if value['other_tags'] else None,
                 dumps(value['geom'])])
 
+        for value in values['points']:
+            cur.execute("""
+            INSERT INTO island_labels (osm_id, osm_way_id, name, name_en, geom)
+            VALUES (%s, %s, %s, %s, ST_Transform(ST_GeomFromGeoJSON(%s), 4326))
+            """, [
+                value['osm_id'],
+                None,
+                value['name'],
+                value['other_tags'].get('name:en') if value['other_tags'] else None,
+                dumps(value['geom'])])
+
         self.conn.commit()
         cur.close()
 
 
-class BeachLabelTransformer(AbstractTransformer):
+class IslandLabelTransformer(AbstractTransformer):
     def load(self):
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
-        SELECT osm_id, osm_way_id, name, name_en, ST_AsGeoJSON(geom) AS geom FROM beach_labels
+            SELECT osm_id, osm_way_id, name, name_en, ST_AsGeoJSON(geom) AS geom FROM island_labels
         """)
 
         row = cur.fetchall()
@@ -132,7 +120,7 @@ class BeachLabelTransformer(AbstractTransformer):
         return features
 
     def save(self, features):
-        filename = os.path.join(self.path, 'beach_label.json')
+        filename = os.path.join(self.path, 'island_label.json')
         fp = open(filename, 'w')
         for feature in features:
             fp.write(record(dumps(feature)))

@@ -14,7 +14,7 @@ class MarinaTransformer(AbstractTransformer):
         psycopg2.extras.register_hstore(cur)
 
         cur.execute("""
-        SELECT ST_AsGeoJSON(ST_Transform(wkb_geometry, 3857)) AS geom
+        SELECT osm_way_id, ST_AsGeoJSON(ST_Transform(wkb_geometry, 3857)) AS geom
         FROM multipolygons
         WHERE "other_tags" @> '"seamark:type"=>"harbour"' AND "other_tags" @> '"seamark:harbour:category"=>"marina"'
         """)
@@ -29,7 +29,9 @@ class MarinaTransformer(AbstractTransformer):
             polygon = loads(value['geom'])
             coordinates = polylabel(polygon['coordinates'][0])
             point = proj_point(Point(coordinates), 'EPSG:3857', 'EPSG:4326')
-            features.append(Feature(geometry=point))
+            features.append(Feature(geometry=point, properties={
+                'osm_ref': value['osm_way_id'] + 'w'
+            }))
 
         return features
 

@@ -15,14 +15,14 @@ class AnchorageTransformer(AbstractTransformer):
         psycopg2.extras.register_hstore(cur)
 
         cur.execute("""
-        SELECT ST_AsGeoJSON(ST_Transform(ST_MakePolygon(wkb_geometry), 3857)) AS geom
+        SELECT osm_id, ST_AsGeoJSON(ST_Transform(ST_MakePolygon(wkb_geometry), 3857)) AS geom
         FROM lines
         WHERE "other_tags" @> '"seamark:type"=>"anchorage"'
         """)
         values['polygons'] = cur.fetchall()
 
         cur.execute("""
-        SELECT ST_AsGeoJSON(wkb_geometry) AS geom
+        SELECT osm_id, ST_AsGeoJSON(wkb_geometry) AS geom
         FROM points
         WHERE "other_tags" @> '"seamark:type"=>"anchorage"'
         """)
@@ -38,11 +38,15 @@ class AnchorageTransformer(AbstractTransformer):
             polygon = loads(value['geom'])
             coordinates = polylabel(polygon['coordinates'])
             point = proj_point(Point(coordinates), 'EPSG:3857', 'EPSG:4326')
-            features.append(Feature(geometry=point))
+            features.append(Feature(geometry=point, properties={
+                'osm_ref': value['osm_id'] + 'n'
+            }))
 
         for value in values['points']:
             point = loads(value['geom'])
-            features.append(Feature(geometry=point))
+            features.append(Feature(geometry=point, properties={
+                'osm_ref': value['osm_id'] + 'n'
+            }))
 
         return features
 
